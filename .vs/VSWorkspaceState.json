@@ -1,6 +1,9 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\AA4_DedicatedServer",
+    "\\AA4_DedicatedServer\\AA4_DedicatedServer"
   ],
+  "SelectedNode": "\\AA4_DedicatedServer\\AA4_DedicatedServer.sln",
   "PreviewInSolutionExplorer": false
 }
