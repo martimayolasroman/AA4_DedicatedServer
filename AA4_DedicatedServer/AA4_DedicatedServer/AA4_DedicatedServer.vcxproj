@@ -131,7 +131,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DedicatedServer.cpp" />
+    <ClCompile Include="GameRoom.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="ThreadPool.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="DedicatedServer.h" />
+    <ClInclude Include="GameRoom.h" />
+    <ClInclude Include="PlayerState.h" />
+    <ClInclude Include="ThreadPool.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
