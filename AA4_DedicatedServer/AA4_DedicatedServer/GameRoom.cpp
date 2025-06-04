@@ -20,7 +20,7 @@ GameRoom::GameRoom(const std::string& roomId, sf::UdpSocket& serverSocket, sf::I
 {
     std::cout << "[GameRoom " << id << "] Creada para P1:"
         << player1_address.toString() << ":" << player1_port << " y P2:"
-        << player2_address.toString() << ":" << player2_port << std::endl;
+        << player2_address.toString() << ":" << player2_port << std::endl;*/
 
     // Inicializar estados de jugadores
     player1_state.position = { 100.f, static_cast<float>(SERVER_MAP_WIDTH) / 2.f }; // REVISAR: Y usa SERVER_MAP_WIDTH, ¿es correcto o debería ser una altura?

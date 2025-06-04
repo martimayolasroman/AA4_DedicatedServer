@@ -62,7 +62,11 @@ private:
     sf::TcpListener admin_listener;
     std::thread admin_thread;
 
-    void adminListenLoop();
+    std::thread admin_connection_handler_thread_;
+
+    void adminServiceLoop();
+
+    void handleActiveMatchmakingConnection(sf::TcpSocket matchmaking_socket);
     void handleNewGameRequest(sf::TcpSocket* matchmaking_service_client);
 
     //Gameplay
@@ -78,7 +82,7 @@ private:
 
     // Gestión de salas y sus threads
   std::vector<GameRoom*> active_game_rooms;
-    std::vector<std::thread> game_room_threads; // Guardamos los threads para hacer join()
+    //std::vector<std::thread> game_room_threads; // Guardamos los threads para hacer join()
     std::mutex rooms_mutex; // Para proteger active_game_rooms y game_room_threads
 
     // Mapa para dirigir paquetes UDP a la GameRoom correcta
