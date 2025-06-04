@@ -14,9 +14,9 @@ GameRoom::GameRoom(const std::string& roomId, sf::UdpSocket& serverSocket, sf::I
     player1_address(p1Addr), player1_port(p1Port),
     player2_address(p2Addr), player2_port(p2Port) {
 
-    std::cout << "[GameRoom " << id << "] Creada para P1:"
+  /*  std::cout << "[GameRoom " << id << "] Creada para P1:"
         << player1_address.toString() << ":" << player1_port << " y P2:"
-        << player2_address.toString() << ":" << player2_port << std::endl;
+        << player2_address.toString() << ":" << player2_port << std::endl;*/
 
     // Inicializar estados de jugadores (posiciones y stats)
     player1_state.position = { 100.f, static_cast<float>(SERVER_MAP_WIDTH) / 2.f }; // Ajustar Y si es necesario
@@ -107,10 +107,10 @@ void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned sho
                     << remoteAddress.toString() << ":" << remotePort << std::endl;
             }
 
-            std::cout << "[GAMEROOM " << id << " INPUT_PROCESSED from " << received_from_player
+            /*std::cout << "[GAMEROOM " << id << " INPUT_PROCESSED from " << received_from_player
                 << "] InputMoveDir: " << moveDirInput
                 << " | P1_state.moveDir: " << player1_state.moveDirection
-                << " | P2_state.moveDir: " << player2_state.moveDirection << std::endl;
+                << " | P2_state.moveDir: " << player2_state.moveDirection << std::endl;*/
 
         }
         else {
@@ -145,8 +145,8 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime) {
 void GameRoom::updateGameState(float deltaTime) { // Ahora recibe deltaTime
     if (!running_flag.load()) return;
     // LOG CRÍTICO AQUÍ:
-    std::cout << "[GAMEROOM " << id << " UPDATE_GAME_STATE_START] P1_moveDir: " << player1_state.moveDirection
-        << " | P2_moveDir: " << player2_state.moveDirection << std::endl;
+   /* std::cout << "[GAMEROOM " << id << " UPDATE_GAME_STATE_START] P1_moveDir: " << player1_state.moveDirection
+        << " | P2_moveDir: " << player2_state.moveDirection << std::endl;*/
 
 
     // Actualizar estado de cada jugador basado en sus inputs (moveDirection)
