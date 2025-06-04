@@ -1,30 +1,51 @@
 #pragma once
 
 #include <SFML/Network.hpp>
-#include <SFML/Graphics.hpp>
+#include <SFML/Graphics.hpp> // Necesario para sf::RectangleShape y sf::FloatRect
 #include <string>
 #include <vector>
 #include <atomic>
 #include <mutex>
 #include <SFML/System/Time.hpp>
+#include <fstream>
+#include <iostream>
+#include <optional>
 
-// Asumo que PlayerState.h está en el mismo directorio o en include path
 #include "PlayerState.h"
 
-// Constantes de juego para el servidor
-const float PLAYER_SERVER_SPEED = 250.0f; // Pixels por segundo, igual que en el cliente
-const unsigned int SERVER_MAP_WIDTH = 1024; // Ancho del mapa del juego
-const unsigned int SERVER_MAP_HEIGHT = 768; // <--- NUEVO: Altura del mapa
-const float TILE_SIZE = 32.0f; // <--- NUEVO: Asumo el tamaño del tile para colisiones en el servidor
+// Constantes de juego para el servidor (DEBEN COINCIDIR EXACTAMENTE CON EL CLIENTE)
+const float PLAYER_SERVER_SPEED = 250.0f;
+const unsigned int SERVER_MAP_WIDTH = 1024;
+const unsigned int SERVER_MAP_HEIGHT = 768;
+const float TILE_SIZE = 32.0f;
 
-const float GRAVITY_SERVER = 1200.0f; // <--- NUEVO: Gravedad en el servidor (debe coincidir con el cliente)
-const float JUMP_STRENGTH_SERVER = 650.0f; // <--- NUEVO: Fuerza de salto en el servidor (debe coincidir con el cliente)
-const float GAME_ROOM_PLAYER_WIDTH = TILE_SIZE * 0.9f; // <--- NUEVO: Dimensiones del jugador en el servidor
-const float GAME_ROOM_PLAYER_HEIGHT = TILE_SIZE * 1.4f; // <--- NUEVO
+const float GRAVITY_SERVER = 1200.0f;
+const float JUMP_STRENGTH_SERVER = 650.0f; // <--- Asegúrate que coincide con JUMP_STRENGTH del cliente
+const float GAME_ROOM_PLAYER_WIDTH = TILE_SIZE * 0.9f;
+const float GAME_ROOM_PLAYER_HEIGHT = TILE_SIZE * 1.4f;
 const int PLAYER_INITIAL_HEALTH = 5;
 const int PLAYER_INITIAL_LIVES = 3;
-const int PLAYER_INITIAL_POS_X = 100;
-const int PLAYER_INITIAL_POS_Y = 100;
+const float PLAYER_INITIAL_POS_X = 100.0f;
+const float PLAYER_INITIAL_POS_Y = 500.0f; // Ajusta esto para que los jugadores aparezcan sobre el suelo
+
+// --- CONSTANTES DE BALA EN EL SERVIDOR (DEBEN COINCIDIR CON EL CLIENTE) ---
+const float BULLET_SERVER_SPEED = 500.0f;
+const float BULLET_SERVER_RADIUS = 5.0f; // Coincide con BULLET_RADIUS del cliente
+const float SHOOT_SERVER_COOLDOWN = 2.0f; // Coincide con SHOOT_COOLDOWN del cliente
+
+// Estructura para las balas del servidor
+struct ServerBullet {
+    sf::Vector2f position;
+    sf::Vector2f velocity;
+    float radius;
+    bool isActive;
+    int ownerPlayerId; // 1 o 2, para saber quién disparó y aplicar daño
+
+    ServerBullet(sf::Vector2f pos, sf::Vector2f vel, float r, int ownerId)
+        : position(pos), velocity(vel), radius(r), isActive(true), ownerPlayerId(ownerId) {}
+};
+
+
 // Valores numéricos alineados con Utils.h/PacketType del cliente
 enum GameRoomPacketType {
     GR_C_PLAYER_INPUT = 5,
@@ -48,7 +69,7 @@ public:
         sf::UdpSocket& serverSocket,
         sf::IpAddress p1Addr, unsigned short p1Port,
         sf::IpAddress p2Addr, unsigned short p2Port,
-        const std::string& mapFilePath); // <--- NUEVO PARÁMETRO
+        const std::string& mapFilePath);
 
     void run();
     void stop();
@@ -66,21 +87,22 @@ private:
     sf::IpAddress player1_address;
     unsigned short player1_port;
     PlayerState player1_state;
+    float player1_shoot_cooldown;
 
     sf::IpAddress player2_address;
     unsigned short player2_port;
     PlayerState player2_state;
+    float player2_shoot_cooldown;
 
-    // Para la simulación del mapa en el servidor (ej. un simple suelo)
-    std::vector<sf::RectangleShape> server_platforms; // <--- NUEVO: Para las colisiones del servidor
+    std::vector<sf::RectangleShape> m_server_map_platforms;
+    std::vector<ServerBullet> m_server_bullets;
 
-    // Mapa de plataformas del servidor
-    std::vector<sf::RectangleShape> m_server_map_platforms; // <--- NUEVO
+    const sf::Time gameTickInterval = sf::milliseconds(16); // Aproximadamente 60 TPS
+
     std::vector<sf::RectangleShape> loadServerMap(const std::string& filename);
 
-    const sf::Time gameTickInterval = sf::milliseconds(4); // ~60 ticks por segundo (1000ms / 16ms = 62.5 TPS)
-
-    void updatePlayerState(PlayerState& playerstate, float deltaTime);
+    void updatePlayerState(PlayerState& playerstate, float deltaTime, float& shootCooldown, int playerId);
+    void updateBulletsServer(float deltaTime);
     void updateGameState(float deltaTime);
     void sendGameStateToClients();
 };
