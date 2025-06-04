@@ -117,6 +117,17 @@ void GameRoom::stop() { /* ... sin cambios ... */ }
 void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned short remotePort, sf::Packet& packet) {
     if (!running_flag.load()) return;
 
+
+
+
+
+
+
+
+
+
+
+
     GameRoomPacketType packetType;
     if (!(packet >> packetType)) { std::cerr << "[GameRoom " << id << "] Error al leer GameRoomPacketType." << std::endl; return; }
 
