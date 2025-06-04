@@ -26,13 +26,14 @@ inline sf::Packet& operator>>(sf::Packet& packet, AdminPacketType& type) {
     return packet;
 }
 
-
-DedicatedServer::DedicatedServer(unsigned short gamePort, unsigned short adminPort, size_t num_pool_threads)
+// <--- MODIFICADO: Constructor de DedicatedServer
+DedicatedServer::DedicatedServer(unsigned short gamePort, unsigned short adminPort, size_t num_pool_threads, const std::string& map_file_path)
     : game_udp_port_val(gamePort),
     admin_tcp_port_val(adminPort),
     server_running_flag(false),
-    thread_pool_(num_pool_threads) { 
-
+    thread_pool_(num_pool_threads),
+    m_map_file_path(map_file_path) // <--- NUEVO: Inicializar la ruta del mapa
+{
     if (game_udp_socket.bind(game_udp_port_val) != sf::Socket::Status::Done) {
         std::cerr << "[DedicatedServer] Error al enlazar socket UDP al puerto " << game_udp_port_val << std::endl;
         throw std::runtime_error("Failed to bind game UDP socket.");
@@ -46,7 +47,9 @@ DedicatedServer::DedicatedServer(unsigned short gamePort, unsigned short adminPo
     }
     std::cout << "[DedicatedServer] Puerto TCP de admin escuchando en " << admin_tcp_port_val << std::endl;
     std::cout << "[DedicatedServer] ThreadPool inicializado con " << num_pool_threads << " threads." << std::endl;
+    std::cout << "[DedicatedServer] Ruta del mapa para salas de juego: " << m_map_file_path << std::endl; // <--- Log
 }
+
 
 DedicatedServer::~DedicatedServer() {
     stop();
@@ -159,20 +162,18 @@ void DedicatedServer::adminServiceLoop() {
 }
 
 void DedicatedServer::handleActiveMatchmakingConnection(sf::TcpSocket matchmaking_socket) {
-    // El socket se movió aquí, este thread es ahora su dueño.
-    matchmaking_socket.setBlocking(true); // Esperar por notificaciones
+    matchmaking_socket.setBlocking(true);
 
     sf::Packet packet;
     while (server_running_flag.load()) {
-        packet.clear(); // Limpiar paquete para nueva recepción
+        packet.clear();
         sf::Socket::Status status = matchmaking_socket.receive(packet);
 
         if (status == sf::Socket::Status::Done) {
-            AdminPacketType type = AdminPacketType::ADMIN_UNKNOWN; // Valor por defecto
-            if (!(packet >> type)) { // Intenta deserializar el tipo
+            AdminPacketType type = AdminPacketType::ADMIN_UNKNOWN;
+            if (!(packet >> type)) {
                 std::cerr << "[DedicatedServer-AdminHandler] Error deserializando AdminPacketType." << std::endl;
-                // Podría ser un paquete corrupto o una desconexión no limpia.
-                break; // Salir del bucle de recepción para este socket
+                break;
             }
 
             if (type == AdminPacketType::NOTIFY_NEW_GAME) {
@@ -189,9 +190,7 @@ void DedicatedServer::handleActiveMatchmakingConnection(sf::TcpSocket matchmakin
 
                     if (!notification.player1Ip.has_value() || !notification.player2Ip.has_value()) {
                         std::cerr << "[DedicatedServer-AdminHandler] Error resolviendo IPs para sala " << roomId_str << std::endl;
-                        // No se puede crear la sala, pero la conexión con MatchmakingService puede seguir.
-                        // Podrías enviar un NACK (Not Acknowledged) al MatchmakingService aquí.
-                        continue; // Esperar el siguiente paquete
+                        continue;
                     }
 
                     std::cout << "[DedicatedServer-AdminHandler] Notificación de juego recibida para sala: " << notification.roomId
@@ -200,13 +199,15 @@ void DedicatedServer::handleActiveMatchmakingConnection(sf::TcpSocket matchmakin
 
                     GameRoom* new_room = nullptr;
                     try {
+                        // <--- MODIFICADO: Pasar la ruta del mapa al constructor de GameRoom
                         new_room = new GameRoom(notification.roomId, game_udp_socket,
                             notification.player1Ip.value(), notification.player1UdpPort,
-                            notification.player2Ip.value(), notification.player2UdpPort);
+                            notification.player2Ip.value(), notification.player2UdpPort,
+                            m_map_file_path); // <--- NUEVO PARÁMETRO
                     }
                     catch (const std::exception& e) {
                         std::cerr << "[DedicatedServer-AdminHandler] Excepción creando GameRoom '" << notification.roomId << "': " << e.what() << std::endl;
-                        continue; // Esperar el siguiente paquete
+                        continue;
                     }
 
                     if (new_room) {
@@ -226,38 +227,33 @@ void DedicatedServer::handleActiveMatchmakingConnection(sf::TcpSocket matchmakin
                                 std::cout << "[ThreadPool Task] Iniciando GameRoom " << room_ptr_for_task->getRoomId() << std::endl;
                                 room_ptr_for_task->run();
                                 std::cout << "[ThreadPool Task] GameRoom " << room_ptr_for_task->getRoomId() << " ha finalizado su ejecución." << std::endl;
-                                // Aquí NO se borra room_ptr_for_task. Se borra en DedicatedServer::stop()
-                                // o si implementas un mecanismo para que las salas se auto-eliminen de active_game_rooms_.
                             }
                             });
                         std::cout << "[DedicatedServer-AdminHandler] GameRoom '" << new_room->getRoomId() << "' encolada." << std::endl;
                     }
                 }
-                else { // Fallo al deserializar datos de NOTIFY_NEW_GAME
+                else {
                     std::cerr << "[DedicatedServer-AdminHandler] Error deserializando datos de NOTIFY_NEW_GAME." << std::endl;
                 }
             }
             else if (type == AdminPacketType::ADMIN_UNKNOWN) {
                 std::cerr << "[DedicatedServer-AdminHandler] Error severo deserializando AdminPacketType (paquete corrupto o stream finalizado)." << std::endl;
-                break; // Probablemente la conexión está mal
+                break;
             }
-            else { // Tipo de paquete Admin desconocido
+            else {
                 std::cerr << "[DedicatedServer-AdminHandler] Tipo de paquete Admin desconocido: " << static_cast<int>(type) << std::endl;
             }
         }
         else if (status == sf::Socket::Status::Disconnected) {
             std::cout << "[DedicatedServer-AdminHandler] MatchmakingService se desconectó." << std::endl;
-            break; // Salir del bucle de recepción
+            break;
         }
         else if (status == sf::Socket::Status::Error) {
             std::cerr << "[DedicatedServer-AdminHandler] Error de socket con MatchmakingService." << std::endl;
-            break; // Salir del bucle
+            break;
         }
-        // Si NotReady y es bloqueante, es un error. Si es no bloqueante, sería normal.
-        // Pero lo pusimos bloqueante.
     }
-    // El bucle while (server_running_flag_.load()) también puede terminar el bucle.
-    matchmaking_socket.disconnect(); // Asegurar desconexión al salir del handler
+    matchmaking_socket.disconnect();
     std::cout << "[DedicatedServer-AdminHandler] Terminada la gestión de la conexión actual con MatchmakingService." << std::endl;
 }
 

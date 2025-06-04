@@ -46,7 +46,7 @@ class DedicatedServer
 
 public:
 
-    DedicatedServer(unsigned short gamePort, unsigned short adminPort, size_t num_pool_threads);
+    DedicatedServer(unsigned short gamePort, unsigned short adminPort, size_t num_pool_threads, const std::string& map_file_path);  
     ~DedicatedServer();
 
     void run();
@@ -54,6 +54,7 @@ public:
 
 
 private:
+    std::string m_map_file_path;
 
     ThreadPool thread_pool_;
 

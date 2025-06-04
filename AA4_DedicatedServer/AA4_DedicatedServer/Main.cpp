@@ -20,7 +20,10 @@ int main() {
     unsigned short admin_port = 56001;   // Puerto TCP para administración
     size_t pool_threads = std::thread::hardware_concurrency(); // O std::thread::hardware_concurrency()
 
-    DedicatedServer dedicated_server(game_port, admin_port, pool_threads);
+
+    std::string map_file_path = "Data/map.txt"; // <--- NUEVO: Ruta del mapa (debe coincidir con el cliente)
+
+    DedicatedServer dedicated_server(game_port, admin_port, pool_threads, map_file_path); // <--- MODIFICADO
 
     std::thread server_thread(&DedicatedServer::run, &dedicated_server);
     std::cout << "[MainDedicated] Servidor Dedicado iniciado. Presiona Ctrl+C para detener." << std::endl;
