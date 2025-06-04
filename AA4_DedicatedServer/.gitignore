@@ -16,12 +16,12 @@
 # Mono auto generated files
 mono_crash.*
 
-# Build results
+# Default behavior: Ignore common build output directories at any level
+# This helps catch them even if they are not at the root.
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
 [Rr]eleases/
-x64/
 x86/
 [Ww][Ii][Nn]32/
 [Aa][Rr][Mm]/
@@ -31,6 +31,37 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+
+# Ignore the top-level x64 directory by default
+# We will un-ignore specific parts of it.
+/x64/
+
+# --- EXCEPTIONS: Un-ignore specific parts of x64/Release or x64/Debug ---
+# You'll need to choose EITHER Release OR Debug, or duplicate for both if needed.
+# Adjust "Release" to "Debug" if you are working with Debug builds primarily.
+
+# Un-ignore the x64/Release directory itself
+!/x64/Release/
+
+# Un-ignore DLLs directly inside x64/Release
+!/x64/Release/*.dll
+
+# Un-ignore the Assets folder and its contents inside x64/Release
+!/x64/Release/Assets/
+!/x64/Release/Assets/**
+
+# Un-ignore the Data folder and its contents inside x64/Release
+!/x64/Release/Data/
+!/x64/Release/Data/**
+
+# If you also need to commit x64/Debug with its Assets/Data/DLLs:
+# !/x64/Debug/
+# !/x64/Debug/*.dll
+# !/x64/Debug/Assets/
+# !/x64/Debug/Assets/**
+# !/x64/Debug/Data/
+# !/x64/Debug/Data/**
+
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
@@ -264,9 +295,11 @@ ServiceFabricBackup/
 *.rptproj.bak
 
 # SQL Server files
-*.mdf
-*.ldf
-*.ndf
+# *.mdf
+# *.ldf
+# *.ndf
+# Comentado para que no se ignoren si estuvieran en la raíz o en Data/ por error,
+# pero generalmente no se suben a Git si son bases de datos locales de desarrollo.
 
 # Business Intelligence projects
 *.rdl.data
@@ -304,8 +337,8 @@ node_modules/
 *.dsp
 
 # Visual Studio 6 technical files
-*.ncb
-*.aps
+# *.ncb # Ya cubierto por la regla general
+# *.aps # Ya cubierto por la regla general
 
 # Visual Studio LightSwitch build output
 **/*.HTMLClient/GeneratedArtifacts
@@ -398,11 +431,3 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
-
-# ========================
-# Permetre DLLs d'execució
-# ========================
-
-# No ignorar DLLs de les carpetes d'executables finals
-!AA2_Cliente_Parchis/x64/Release/*.dll
-!AA2_Server_Parchis/x64/Release/*.dll
