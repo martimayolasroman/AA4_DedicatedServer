@@ -1,5 +1,7 @@
 #include "ThreadPool.h"
 
+
+//Crea el pool de threads.
 ThreadPool::ThreadPool(size_t num_threads):num_threads_(num_threads),stop_flag_(false)
 {
 
@@ -23,6 +25,7 @@ ThreadPool::~ThreadPool()
 
 }
 
+//Detiene el pool de threads de forma ordenada.
 void ThreadPool::stop()
 {
 
@@ -41,6 +44,7 @@ void ThreadPool::stop()
 
 }
 
+//El bucle que ejecuta cada thread trabajador.
 void ThreadPool::workerLoop()
 {
 

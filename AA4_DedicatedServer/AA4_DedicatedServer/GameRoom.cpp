@@ -3,7 +3,7 @@
 #include <thread>
 #include <SFML/System/Clock.hpp> 
 #include <SFML/System/Time.hpp>  
-#include <algorithm> // Para std::min/max y std::remove_if
+#include <algorithm> 
 #include <fstream>
 
 // Función para cargar el mapa en el servidor
@@ -73,6 +73,7 @@ GameRoom::GameRoom(const std::string& roomId, sf::UdpSocket& serverSocket, sf::I
     player2_state.onGround = false;
 }
 
+//El bucle principal de ejecución de esta sala de juego. Se ejecuta en un thread del ThreadPool.
 void GameRoom::run() {
     running_flag = true;
     std::cout << "[GameRoom " << id << "] Iniciando bucle de juego (con timestep fijo)." << std::endl;
@@ -111,22 +112,11 @@ void GameRoom::run() {
     std::cout << "[GameRoom " << id << "] Bucle de juego detenido." << std::endl;
 }
 
-void GameRoom::stop() { /* ... sin cambios ... */ }
+void GameRoom::stop() {  }
 
-// Procesar inputs UDP
+// Procesa un paquete UDP que el DedicatedServer::udpListenLoop ha determinado que pertenece a esta sala.
 void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned short remotePort, sf::Packet& packet) {
     if (!running_flag.load()) return;
-
-
-
-
-
-
-
-
-
-
-
 
     GameRoomPacketType packetType;
     if (!(packet >> packetType)) { std::cerr << "[GameRoom " << id << "] Error al leer GameRoomPacketType." << std::endl; return; }
@@ -153,7 +143,7 @@ void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned sho
     else { std::cerr << "[GameRoom " << id << "] Tipo de paquete UDP desconocido: " << static_cast<int>(packetType) << std::endl; }
 }
 
-// Lógica de física autoritativa del servidor para un jugador (incluye gestión de disparo)
+// Actualiza el estado lógico de un jugador individual (movimiento, salto, disparo, colisiones).
 void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime, float& shootCooldown, int playerId) {
     // Gestión del cooldown de disparo
     if (shootCooldown > 0) {
@@ -167,10 +157,10 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime, floa
         sf::Vector2f bulletVelocity;
 
         // Determinar dirección del disparo. Asumir facingRight si no hay movimiento/velocidad.
-        bool facingRight = true; // Default
+        bool facingRight = true; 
         if (playerstate.moveDirection < 0 || playerstate.velocity.x < 0) facingRight = false;
         else if (playerstate.moveDirection > 0 || playerstate.velocity.x > 0) facingRight = true;
-        // Si está quieto (moveDir=0, vel.x=0), la dirección podría basarse en un flag "lastFacingDirection" si lo tuvieras.
+       
 
         if (facingRight) {
             bulletSpawnPos.x += GAME_ROOM_PLAYER_WIDTH;
@@ -281,7 +271,7 @@ void GameRoom::updateBulletsServer(float deltaTime) {
         m_server_bullets.end());
 }
 
-
+//Orquesta la actualización de todos los elementos de la lógica del juego para esta sala
 void GameRoom::updateGameState(float deltaTime) {
     if (!running_flag.load()) return;
     updatePlayerState(player1_state, deltaTime, player1_shoot_cooldown, 1);
@@ -289,7 +279,8 @@ void GameRoom::updateGameState(float deltaTime) {
     updateBulletsServer(deltaTime);
 }
 
-// Enviar estado del juego a los clientes (ahora incluye balas)
+//Serializa el estado actual del juego(posiciones de jugadores, salud, vidas, velocidad, estado en el suelo, y estado de las balas)
+//  y lo envía a ambos clientes conectados a esta sala.
 void GameRoom::sendGameStateToClients() {
     if (!running_flag.load()) return;
 
@@ -307,6 +298,6 @@ void GameRoom::sendGameStateToClients() {
             << bullet.radius << bullet.isActive << bullet.ownerPlayerId;
     }
 
-    if (game_socket.send(gameStatePacket, player1_address, player1_port) != sf::Socket::Status::Done) { /* ... */ }
-    if (game_socket.send(gameStatePacket, player2_address, player2_port) != sf::Socket::Status::Done) { /* ... */ }
+    if (game_socket.send(gameStatePacket, player1_address, player1_port) != sf::Socket::Status::Done) {  }
+    if (game_socket.send(gameStatePacket, player2_address, player2_port) != sf::Socket::Status::Done) {  }
 }

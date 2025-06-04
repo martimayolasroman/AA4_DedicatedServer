@@ -5,8 +5,8 @@
 
 struct PlayerState {
     sf::Vector2f position = { 0.f, 0.f };
-    int health = 5; // Debería ser PLAYER_INITIAL_HEALTH
-    int lives = 3;  // Debería ser PLAYER_INITIAL_LIVES
+    int health = 5; 
+    int lives = 3;  
 
     bool wantsToShoot = false;      // Si el cliente envió input de disparo
     float moveDirection = 0.0f;   // Input de movimiento

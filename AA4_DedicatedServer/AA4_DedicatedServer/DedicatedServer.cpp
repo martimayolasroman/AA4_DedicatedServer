@@ -26,13 +26,14 @@ inline sf::Packet& operator>>(sf::Packet& packet, AdminPacketType& type) {
     return packet;
 }
 
-// <--- MODIFICADO: Constructor de DedicatedServer
+
+//Inicializa el servidor dedicado.
 DedicatedServer::DedicatedServer(unsigned short gamePort, unsigned short adminPort, size_t num_pool_threads, const std::string& map_file_path)
     : game_udp_port_val(gamePort),
     admin_tcp_port_val(adminPort),
     server_running_flag(false),
     thread_pool_(num_pool_threads),
-    m_map_file_path(map_file_path) // <--- NUEVO: Inicializar la ruta del mapa
+    m_map_file_path(map_file_path) 
 {
     if (game_udp_socket.bind(game_udp_port_val) != sf::Socket::Status::Done) {
         std::cerr << "[DedicatedServer] Error al enlazar socket UDP al puerto " << game_udp_port_val << std::endl;
@@ -47,7 +48,7 @@ DedicatedServer::DedicatedServer(unsigned short gamePort, unsigned short adminPo
     }
     std::cout << "[DedicatedServer] Puerto TCP de admin escuchando en " << admin_tcp_port_val << std::endl;
     std::cout << "[DedicatedServer] ThreadPool inicializado con " << num_pool_threads << " threads." << std::endl;
-    std::cout << "[DedicatedServer] Ruta del mapa para salas de juego: " << m_map_file_path << std::endl; // <--- Log
+    std::cout << "[DedicatedServer] Ruta del mapa para salas de juego: " << m_map_file_path << std::endl; 
 }
 
 
@@ -55,22 +56,24 @@ DedicatedServer::~DedicatedServer() {
     stop();
 }
 
+//Inicia la ejecución principal del servidor dedicado. esta función se ejecute en su propio thread.
 void DedicatedServer::run() {
     server_running_flag = true;
-    // admin_thread_ ahora lanzará el bucle que acepta y luego maneja la conexión.
+   
     admin_thread = std::thread(&DedicatedServer::adminServiceLoop, this);
     udp_listen_thread = std::thread(&DedicatedServer::udpListenLoop, this);
 
     std::cout << "[DedicatedServer] Servidor Dedicado en ejecución." << std::endl;
 
-    // Esperar a que los threads terminen solo si el servidor se detiene explícitamente
-    // o si terminan por alguna otra razón.
+    // Esperar a que los threads terminen solo si el servidor se detiene 
+   
     if (admin_thread.joinable()) admin_thread.join();
     if (udp_listen_thread.joinable()) udp_listen_thread.join();
 
     std::cout << "[DedicatedServer] run() terminando (esto es normal si los threads han terminado)." << std::endl;
 }
 
+//Detiene el servidor dedicado de forma ordenada.
 void DedicatedServer::stop() {
     if (!server_running_flag.exchange(false)) { // Si ya estaba false, no hacer nada
         return;
@@ -81,26 +84,23 @@ void DedicatedServer::stop() {
     admin_listener.close();
     std::cout << "[DedicatedServer] Admin listener cerrado." << std::endl;
 
-    // 2. El admin_thread_ (que ejecuta adminServiceLoop) debería terminar
-    //    porque server_running_flag_ es false y/o accept() fallará.
-    //    Si está en handleActiveMatchmakingConnection, server_running_flag_ también lo detendrá.
+    
     if (admin_thread.joinable()) {
         admin_thread.join();
     }
     std::cout << "[DedicatedServer] Thread de servicio de admin detenido." << std::endl;
 
-    // 3. Desvincular el socket UDP para detener la recepción y liberar el puerto
+    // 2. Desvincular el socket UDP para detener la recepción y liberar el puerto
     game_udp_socket.unbind();
     std::cout << "[DedicatedServer] Socket UDP desvinculado." << std::endl;
 
-    // 4. El udp_listen_thread_ debería terminar porque server_running_flag_ es false
-    //    y/o game_udp_socket_.receive() fallará.
+    
     if (udp_listen_thread.joinable()) {
         udp_listen_thread.join();
     }
     std::cout << "[DedicatedServer] Thread de escucha UDP detenido." << std::endl;
 
-    // 5. Señalar a todas las GameRooms activas que se detengan
+    // 3. Señalar a todas las GameRooms activas que se detengan
     {
         std::lock_guard<std::mutex> lock(rooms_mutex);
         std::cout << "[DedicatedServer] Señalando stop a " << active_game_rooms.size() << " GameRooms activas..." << std::endl;
@@ -109,12 +109,12 @@ void DedicatedServer::stop() {
         }
     }
 
-    // 6. Detener el ThreadPool. Esto esperará a que las tareas de las GameRoom terminen.
+    // 4. Detener el ThreadPool. Esto esperará a que las tareas de las GameRoom terminen.
     std::cout << "[DedicatedServer] Deteniendo ThreadPool..." << std::endl;
     thread_pool_.stop();
     std::cout << "[DedicatedServer] ThreadPool detenido." << std::endl;
 
-    // 7. Limpiar memoria de las GameRooms
+    // 5. Limpiar memoria de las GameRooms
     {
         std::lock_guard<std::mutex> lock(rooms_mutex);
         std::cout << "[DedicatedServer] Liberando memoria de GameRooms..." << std::endl;
@@ -125,7 +125,7 @@ void DedicatedServer::stop() {
     }
     std::cout << "[DedicatedServer] Memoria de GameRooms liberada." << std::endl;
 
-    // 8. Limpiar el mapa de clientes
+    // 6. Limpiar el mapa de clientes
     {
         std::lock_guard<std::mutex> map_lock(client_map_mutex);
         client_to_room_map.clear();
@@ -133,6 +133,9 @@ void DedicatedServer::stop() {
     std::cout << "[DedicatedServer] Servidor Dedicado detenido completamente." << std::endl;
 }
 
+
+//Acepta una conexión del MatchmakingService. Una vez aceptada, pasa el socket a handleActiveMatchmakingConnection 
+// y vuelve a esperar una nueva conexión si la anterior termina.
 void DedicatedServer::adminServiceLoop() {
     std::cout << "[DedicatedServer-AdminService] Iniciado. Esperando conexión del MatchmakingService..." << std::endl;
     while (server_running_flag.load()) {
@@ -145,22 +148,23 @@ void DedicatedServer::adminServiceLoop() {
             // Una vez conectado, manejar todas las notificaciones de este cliente
             // hasta que se desconecte o el servidor se detenga.
             handleActiveMatchmakingConnection(std::move(matchmaking_connection_socket));
-            // Cuando handleActiveMatchmakingConnection retorne (por desconexión o error),
-            // el bucle volverá a esperar una nueva conexión.
+            
             std::cout << "[DedicatedServer-AdminService] Conexión con MatchmakingService terminada. Volviendo a escuchar..." << std::endl;
         }
         else {
-            // Accept falló. Si el servidor sigue corriendo, es un problema del listener.
-            // Si el servidor se está deteniendo, server_running_flag_ será false y el bucle terminará.
+            
             if (server_running_flag.load()) {
                 std::cerr << "[DedicatedServer-AdminService] Error aceptando conexión del MatchmakingService. El listener podría estar cerrado." << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(1)); // Esperar antes de reintentar
+                //std::this_thread::sleep_for(std::chrono::seconds(1)); // Esperar antes de reintentar
             }
         }
     }
     std::cout << "[DedicatedServer-AdminService] Detenido." << std::endl;
 }
 
+
+//Maneja una conexión TCP activa y persistente con el MatchmakingService. Recibe y procesa múltiples notificaciones de nuevas partidas 
+// a través de este único socket hasta que se desconecte o el servidor se detenga.
 void DedicatedServer::handleActiveMatchmakingConnection(sf::TcpSocket matchmaking_socket) {
     matchmaking_socket.setBlocking(true);
 
@@ -199,11 +203,11 @@ void DedicatedServer::handleActiveMatchmakingConnection(sf::TcpSocket matchmakin
 
                     GameRoom* new_room = nullptr;
                     try {
-                        // <--- MODIFICADO: Pasar la ruta del mapa al constructor de GameRoom
+                       
                         new_room = new GameRoom(notification.roomId, game_udp_socket,
                             notification.player1Ip.value(), notification.player1UdpPort,
                             notification.player2Ip.value(), notification.player2UdpPort,
-                            m_map_file_path); // <--- NUEVO PARÁMETRO
+                            m_map_file_path); 
                     }
                     catch (const std::exception& e) {
                         std::cerr << "[DedicatedServer-AdminHandler] Excepción creando GameRoom '" << notification.roomId << "': " << e.what() << std::endl;
@@ -258,14 +262,16 @@ void DedicatedServer::handleActiveMatchmakingConnection(sf::TcpSocket matchmakin
 }
 
 
+
+//Bucle principal para recibir paquetes UDP
 void DedicatedServer::udpListenLoop() {
     std::cout << "[DedicatedServer-UDPThread] Escuchando paquetes UDP de juego..." << std::endl;
     sf::Packet received_packet;
-    std::optional<sf::IpAddress> sender_ip; // Se inicializará por defecto a None
+    std::optional<sf::IpAddress> sender_ip; 
     unsigned short sender_port = 0;
 
     while (server_running_flag.load()) {
-        received_packet.clear(); // Limpiar para la nueva recepción
+        received_packet.clear(); 
         if (game_udp_socket.receive(received_packet, sender_ip, sender_port) == sf::Socket::Status::Done) {
             GameRoom* target_room = nullptr;
             {
@@ -281,17 +287,11 @@ void DedicatedServer::udpListenLoop() {
                 target_room->processUdpPacket(sender_ip.value(), sender_port, received_packet);
             }
             else {
-                // Opcional: Log si el paquete no va a ninguna sala o la sala no está corriendo
-                // if (!target_room) {
-                //     std::cout << "[DedicatedServer-UDPThread] Paquete UDP de un cliente no asociado: "
-                //               << sender_ip.toString() << ":" << sender_port << std::endl;
-                // }
+              
             }
         }
         else {
-            // Si no es Done y el socket es no bloqueante, fue NotReady.
-            // Un pequeño sleep evita un bucle de CPU muy rápido.
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
         }
     }
     std::cout << "[DedicatedServer-UDPThread] Detenido." << std::endl;
