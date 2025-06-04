@@ -1,115 +1,120 @@
 #include "GameRoom.h"
-
 #include <iostream>
 #include <thread> // Para std::this_thread::sleep_for
 
-// DefiniciÛn de tipos de paquete para el Gameplay (ejemplo)
-enum  GamePacketType  {
-    C_PLAYER_INPUT = 0, // Cliente envÌa sus inputs
-    S_GAME_STATE = 1, 
-    S_PLAYER_SHOOT_EFFECT = 2,
-    S_PLAYER_DIED = 3 
-  
-};
-
-// Operadores para el enum (si no los tienes globales)
-sf::Packet& operator<<(sf::Packet& packet, GamePacketType type) {
-    return packet << static_cast<int>(type);
-}
-sf::Packet& operator>>(sf::Packet& packet, GamePacketType& type) {
-    int temp;
-    packet >> temp;
-    type = static_cast<GamePacketType>(temp);
-    return packet;
-}
+const float GAME_ROOM_PLAYER_WIDTH = 32.0f * 0.9f;
+const int PLAYER_INITIAL_HEALTH = 5;
+const int PLAYER_INITIAL_LIVES = 3;
 
 
 GameRoom::GameRoom(const std::string& roomId, sf::UdpSocket& serverSocket, sf::IpAddress p1Addr, unsigned short p1Port, sf::IpAddress p2Addr, unsigned short p2Port)
     : id(roomId),
-    running_flag(false), // Se pondr· a true en run()
+    running_flag(false), // Se establece a true en run()
     game_socket(serverSocket),
     player1_address(p1Addr), player1_port(p1Port),
-    player2_address(p2Addr), player2_port(p2Port)
-{
+    player2_address(p2Addr), player2_port(p2Port) {
 
-
-    std::cout << "[GameRoom " << id << "] Creada para "
-        << player1_address.toString() << ":" << player1_port << " y "
+    std::cout << "[GameRoom " << id << "] Creada para P1:"
+        << player1_address.toString() << ":" << player1_port << " y P2:"
         << player2_address.toString() << ":" << player2_port << std::endl;
-    // Inicializar estados de jugadores si es necesario
-    player1_state.position = { 100.f, 100.f }; // Ejemplo
-    player2_state.position = { 200.f, 100.f }; // Ejemplo
 
+    // Inicializar estados de jugadores (posiciones y stats)
+    player1_state.position = { 100.f, static_cast<float>(SERVER_MAP_WIDTH) / 2.f }; // Ajustar Y si es necesario
+    player1_state.health = PLAYER_INITIAL_HEALTH;
+    player1_state.lives = PLAYER_INITIAL_LIVES;
+    player1_state.moveDirection = 0.f; // Asegurar estado inicial quieto
+    player1_state.wantsToShoot = false;
 
-
+    player2_state.position = { static_cast<float>(SERVER_MAP_WIDTH) - 100.f - GAME_ROOM_PLAYER_WIDTH, static_cast<float>(SERVER_MAP_WIDTH) / 2.f };
+    player2_state.health = PLAYER_INITIAL_HEALTH;
+    player2_state.lives = PLAYER_INITIAL_LIVES;
+    player2_state.moveDirection = 0.f;
+    player2_state.wantsToShoot = false;
 }
 
-void GameRoom::run()
-{
-    running_flag = true;
+void GameRoom::run() {
+    running_flag = true; // Marcar la sala como en ejecuci√≥n
     std::cout << "[GameRoom " << id << "] Iniciando bucle de juego." << std::endl;
 
-    gameLogicClock.restart();
+    sf::Clock frameClock; // Para calcular deltaTime para updateGameState
 
-    while (running_flag) {
-        // Procesar inputs (se harÌa si los inputs se encolan,
-        // pero aquÌ los procesamos directamente en processUdpPacket)
+    // Enviar estado inicial una vez al comenzar la sala
+    sendGameStateToClients();
+    std::cout << "[GameRoom " << id << "] Estado inicial enviado a los clientes." << std::endl;
 
+    while (running_flag.load()) { // Usar .load() para leer atomics
+        float deltaTime = frameClock.restart().asSeconds(); // Tiempo desde el √∫ltimo frame/tick l√≥gico
+
+        // Los inputs se procesan directamente en processUdpPacket y actualizan playerN_state.moveDirection
+
+        // L√≥gica del juego a una tasa fija (gameTickInterval)
         if (gameLogicClock.getElapsedTime() >= gameTickInterval) {
-            updateGameState();
-            sendGameStateToClients();
+            // Calcular un deltaTime espec√≠fico para la l√≥gica del juego si es necesario,
+
+            updateGameState(gameTickInterval.asSeconds());
+            sendGameStateToClients();          
             gameLogicClock.restart();
         }
 
-        // PequeÒa pausa para no consumir 100% CPU si no hay nada que hacer
-        // y para dar tiempo a otros threads (como el de red del servidor)
-       // std::this_thread::sleep_for(sf::milliseconds(5));
+        // Pausa para no consumir 100% CPU y ceder tiempo.
+        // El valor exacto puede ajustarse. Si el ThreadPool maneja esto,
+        // un sleep aqu√≠ asegura que esta tarea no monopolice un worker.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
+    // La llave del while estaba mal puesta antes.
     std::cout << "[GameRoom " << id << "] Bucle de juego detenido." << std::endl;
 }
 
-void GameRoom::stop()
-{
-    running_flag = false;
+void GameRoom::stop() {
+    running_flag = false; // Esto detendr√° el bucle en run()
+    std::cout << "[GameRoom " << id << "] Solicitud de parada recibida." << std::endl;
 }
 
-void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned short remotePort, sf::Packet& packet)
-{
-    if (!running_flag) return; // No procesar si la sala no est· activa
+void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned short remotePort, sf::Packet& packet) {
+    if (!running_flag.load()) return;
 
-    GamePacketType packetType;
+    GameRoomPacketType packetType;
     if (!(packet >> packetType)) {
-        std::cerr << "[GameRoom " << id << "] Error al leer GamePacketType." << std::endl;
+        std::cerr << "[GameRoom " << id << "] Error al leer GameRoomPacketType." << std::endl;
         return;
     }
 
-    if (packetType == GamePacketType::C_PLAYER_INPUT) {
-        // Determinar quÈ jugador enviÛ el input
-        PlayerState* targetPlayerState = nullptr;
-        if (remoteAddress == player1_address && remotePort == player1_port) {
-            targetPlayerState = &player1_state;
-        }
-        else if (remoteAddress == player2_address && remotePort == player2_port) {
-            targetPlayerState = &player2_state;
-        }
-        else {
-            std::cerr << "[GameRoom " << id << "] Paquete de input de un desconocido: "
-                << remoteAddress.toString() << ":" << remotePort << std::endl;
-            return;
-        }
-
-        // Extraer los inputs del paquete
-        // Ejemplo: el cliente envÌa su direcciÛn de movimiento y si quiere disparar
+    if (packetType == GameRoomPacketType::GR_C_PLAYER_INPUT) {
         float moveDirInput;
-        bool shootInput;
+        bool shootInput; // Aunque no la usemos para disparar a√∫n, la leemos
+
         if (packet >> moveDirInput >> shootInput) {
-            targetPlayerState->moveDirection = moveDirInput;
-            targetPlayerState->wantsToShoot = shootInput;
-            // std::cout << "[GameRoom " << id << "] Input recibido de " << remoteAddress.toString()
-            //           << " Move: " << moveDirInput << " Shoot: " << shootInput << std::endl;
+            std::string received_from_player = "UNKNOWN"; // Para el log
+
+
+            // Determinar qu√© jugador envi√≥ el input y actualizar su estado de input
+            if (remoteAddress == player1_address && remotePort == player1_port) {
+                received_from_player = "P1";
+
+                player1_state.moveDirection = moveDirInput;
+                player1_state.wantsToShoot = shootInput; // Guardar aunque no se use a√∫n
+                 //std::cout << "[GameRoom " << id << "] Input de P1: moveDir=" << moveDirInput << std::endl;
+            }
+            else if (remoteAddress == player2_address && remotePort == player2_port) {
+                received_from_player = "P2";
+
+                player2_state.moveDirection = moveDirInput;
+                player2_state.wantsToShoot = shootInput;
+                 //std::cout << "[GameRoom " << id << "] Input de P2: moveDir=" << moveDirInput << std::endl;
+            }
+            else {
+                std::cerr << "[GameRoom " << id << "] Paquete GR_C_PLAYER_INPUT de un desconocido: "
+                    << remoteAddress.toString() << ":" << remotePort << std::endl;
+            }
+
+            std::cout << "[GAMEROOM " << id << " INPUT_PROCESSED from " << received_from_player
+                << "] InputMoveDir: " << moveDirInput
+                << " | P1_state.moveDir: " << player1_state.moveDirection
+                << " | P2_state.moveDir: " << player2_state.moveDirection << std::endl;
+
         }
         else {
-            std::cerr << "[GameRoom " << id << "] Error al leer datos de input del paquete." << std::endl;
+            std::cerr << "[GameRoom " << id << "] Error al leer datos de GR_C_PLAYER_INPUT." << std::endl;
         }
     }
     else {
@@ -117,64 +122,61 @@ void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned sho
     }
 }
 
-void GameRoom::updateGameState()
-{
-    // LÛgica de juego muy simple: mover jugadores basado en su input
-    const float playerSpeed = 50.0f * gameTickInterval.asSeconds(); // Unidades por tick -> Unidades por segundo
+// Nueva funci√≥n para encapsular la l√≥gica de actualizaci√≥n de un jugador
+void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime) {
+    // Aplicar movimiento horizontal
+    playerstate.position.x += playerstate.moveDirection * PLAYER_SERVER_SPEED * deltaTime;
 
-    // Actualizar Jugador 1
-    player1_state.position.x += player1_state.moveDirection * playerSpeed;
-    if (player1_state.wantsToShoot) {
-        std::cout << "[GameRoom " << id << "] Jugador 1 (" << player1_address.toString() << ") disparÛ!" << std::endl;
-        player1_state.wantsToShoot = false; // Resetear el input de disparo
+    // L√≥gica de l√≠mites del mapa (simple, solo horizontal por ahora)
+    if (playerstate.position.x < 0.f) {
+        playerstate.position.x = 0.f;
     }
-    // AquÌ irÌa la lÛgica de colisiones, daÒo, etc.
-
-    // Actualizar Jugador 2
-    player2_state.position.x += player2_state.moveDirection * playerSpeed;
-    if (player2_state.wantsToShoot) {
-        std::cout << "[GameRoom " << id << "] Jugador 2 (" << player2_address.toString() << ") disparÛ!" << std::endl;
-        player2_state.wantsToShoot = false;
+    if (playerstate.position.x + GAME_ROOM_PLAYER_WIDTH > SERVER_MAP_WIDTH) { // GAME_ROOM_PLAYER_WIDTH debe estar definido
+        playerstate.position.x = SERVER_MAP_WIDTH - GAME_ROOM_PLAYER_WIDTH;
     }
 
-    // LÛgica de vidas, respawn, etc.
-    // Por ejemplo, si un jugador pierde toda la salud:
-    // if (player1_state.health <= 0) {
-    //    player1_state.lives--;
-    //    if (player1_state.lives > 0) {
-    //        player1_state.health = 5; // Respawnea con salud completa
-    //        player1_state.position = {100.f, 100.f}; // PosiciÛn de respawn
-    //    } else {
-    //        // Jugador 1 pierde la partida
-    //        std::cout << "[GameRoom " << id << "] Jugador 1 ha perdido todas las vidas." << std::endl;
-    //        // AquÌ se podrÌa notificar el fin de partida y luego llamar a stop()
-    //    }
-    // }
-
-
+    // Aqu√≠ ir√≠a la l√≥gica de gravedad, salto, colisiones con plataformas del lado del servidor
+    // Por ahora, solo movimiento horizontal b√°sico.
+    // playerstate.velocity.y += GRAVITY_SERVER * deltaTime;
+    // playerstate.position.y += playerstate.velocity.y * deltaTime;
+    // ... colisiones ...
 }
 
-void GameRoom::sendGameStateToClients()
-{
+void GameRoom::updateGameState(float deltaTime) { // Ahora recibe deltaTime
+    if (!running_flag.load()) return;
+    // LOG CR√çTICO AQU√ç:
+    std::cout << "[GAMEROOM " << id << " UPDATE_GAME_STATE_START] P1_moveDir: " << player1_state.moveDirection
+        << " | P2_moveDir: " << player2_state.moveDirection << std::endl;
+
+
+    // Actualizar estado de cada jugador basado en sus inputs (moveDirection)
+    updatePlayerState(player1_state, deltaTime);
+    updatePlayerState(player2_state, deltaTime);
+
+    // L√≥gica de disparo (cuando se implemente)
+    // if (player1_state.wantsToShoot) { /* crear bala, etc. */ player1_state.wantsToShoot = false; }
+    // if (player2_state.wantsToShoot) { /* crear bala, etc. */ player2_state.wantsToShoot = false; } f
+    
+    // Actualizar balas, comprobar colisiones de balas, da√±o, etc.
+}
+
+void GameRoom::sendGameStateToClients() {
+    if (!running_flag.load()) return;
+
     sf::Packet gameStatePacket;
-    gameStatePacket << GamePacketType::S_GAME_STATE;
+    gameStatePacket << GameRoomPacketType::GR_S_GAME_STATE;
 
-    // Empaquetar estado del jugador 1
-    gameStatePacket << player1_state.position.x << player1_state.position.y
-        << player1_state.health << player1_state.lives;
-    // Empaquetar estado del jugador 2
-    gameStatePacket << player2_state.position.x << player2_state.position.y
-        << player2_state.health << player2_state.lives;
-    // ... y cualquier otro estado relevante (balas, etc.)
+    gameStatePacket << player1_state.position.x << player1_state.position.y << player1_state.health << player1_state.lives;
+    gameStatePacket << player2_state.position.x << player2_state.position.y << player2_state.health << player2_state.lives;
 
-    // Enviar a ambos jugadores
+    //std::cout << "---------[GAMEROOM " << id << " SENDING_DATA] P1_X: " << player1_state.position.x<< " | P2_X: " << player2_state.position.x << std::endl;
+
     if (game_socket.send(gameStatePacket, player1_address, player1_port) != sf::Socket::Status::Done) {
-        std::cerr << "[GameRoom " << id << "] Error enviando estado a Jugador 1." << std::endl;
+        std::cerr << "[GameRoom " << id << "] Error enviando estado a Jugador 1 (" << player1_address.toString() << ":" << player1_port << ")" << std::endl;
     }
+
     if (game_socket.send(gameStatePacket, player2_address, player2_port) != sf::Socket::Status::Done) {
-        std::cerr << "[GameRoom " << id << "] Error enviando estado a Jugador 2." << std::endl;
+        std::cerr << "[GameRoom " << id << "] Error enviando estado a Jugador 2 (" << player2_address.toString() << ":" << player2_port << ")" << std::endl;
     }
-    // std::cout << "[GameRoom " << id << "] Estado de juego enviado." << std::endl;
-
-
+    // std::cout << "[GameRoom " << id << "] Estado de juego enviado a P1(" << player1_state.position.x << ") P2(" << player2_state.position.x << ")" << std::endl;
 }
