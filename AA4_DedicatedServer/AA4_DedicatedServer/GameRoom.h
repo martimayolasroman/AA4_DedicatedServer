@@ -29,6 +29,8 @@ const int PLAYER_INITIAL_POS_Y = 100;
 enum GameRoomPacketType {
     GR_C_PLAYER_INPUT = 5,
     GR_S_GAME_STATE = 107,
+    C_PLAYER_TAUNT=108,
+    S_OPPONENT_TAUNT=109
 };
 
 // Operadores para facilitar el uso de GameRoomPacketType con sf::Packet

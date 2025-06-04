@@ -44,7 +44,7 @@ GameRoom::GameRoom(const std::string& roomId, sf::UdpSocket& serverSocket, sf::I
     // updatePlayerState(player1_state, 0.0f); // deltaTime 0 para solo forzar colisión inicial
     // updatePlayerState(player2_state, 0.0f);
 }
-// <--- NUEVO: Función para cargar el mapa en el servidor
+
 
 // Función para cargar el mapa en el servidor (copia de la lógica del cliente)
 std::vector<sf::RectangleShape> GameRoom::loadServerMap(const std::string& filename) {
@@ -131,6 +131,17 @@ void GameRoom::stop() {
 void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned short remotePort, sf::Packet& packet) {
     if (!running_flag.load()) return;
 
+
+
+
+
+
+
+
+
+
+
+
     GameRoomPacketType packetType;
     if (!(packet >> packetType)) {
         std::cerr << "[GameRoom " << id << "] Error al leer GameRoomPacketType." << std::endl;
@@ -140,22 +151,66 @@ void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned sho
     if (packetType == GameRoomPacketType::GR_C_PLAYER_INPUT) {
         float moveDirInput;
         bool shootInput;
-        bool jumpInput; // <--- NUEVO: Leer input de salto
+        bool jumpInput; 
 
-        if (packet >> moveDirInput >> shootInput >> jumpInput) { // <--- MODIFICADO: Leer input de salto
+        if (packet >> moveDirInput >> shootInput >> jumpInput) { 
+
             if (remoteAddress == player1_address && remotePort == player1_port) {
                 player1_state.moveDirection = moveDirInput;
                 player1_state.wantsToShoot = shootInput;
-                player1_state.jumpRequested = jumpInput; // <--- NUEVO: Almacenar solicitud de salto
+                player1_state.jumpRequested = jumpInput; 
             }
             else if (remoteAddress == player2_address && remotePort == player2_port) {
                 player2_state.moveDirection = moveDirInput;
                 player2_state.wantsToShoot = shootInput;
-                player2_state.jumpRequested = jumpInput; // <--- NUEVO: Almacenar solicitud de salto
+                player2_state.jumpRequested = jumpInput;
             }
-            // Log input for debugging:
-            // std::cout << "[GameRoom " << id << "] INPUT_PROCESSED. P1: (" << player1_state.moveDirection << ", " << player1_state.jumpRequested << ") P2: (" << player2_state.moveDirection << ", " << player2_state.jumpRequested << ")" << std::endl;
+            
         }
+        //else if (packetType == C_PLAYER_TAUNT) {
+
+        //    // Determinar qué jugador envió el paquete
+        //    PlayerState* sender_player_state = nullptr;
+        //    std::optional<sf::IpAddress> opponent_address;
+        //    unsigned short opponent_port = 0;
+        //    bool is_p1_sender = false;
+
+
+        //    if (remoteAddress == player1_address && remotePort == player1_port) {
+        //        sender_player_state = &player1_state;
+        //        opponent_address = player2_address;
+        //        opponent_port = player2_port;
+        //        is_p1_sender = true;
+        //    }
+        //    else if (remoteAddress == player2_address && remotePort == player2_port) {
+        //        sender_player_state = &player2_state;
+        //        opponent_address = player1_address;
+        //        opponent_port = player1_port;
+        //        is_p1_sender = false;
+        //    }
+        //    else {
+        //        std::cerr << "[GameRoom " << id << "] Paquete UDP de un desconocido: "
+        //            << remoteAddress.toString() << ":" << remotePort << std::endl;
+        //        return;
+        //    }
+
+
+        //    std::cout << "[GameRoom " << id << "] Recibido C_PLAYER_TAUNT de " << (is_p1_sender ? "P1" : "P2") << std::endl;
+
+        //    // Reenviar al oponente
+        //    sf::Packet opponentTauntPacket;
+        //    opponentTauntPacket << S_OPPONENT_TAUNT;
+        //    // No se necesitan más datos en este paquete
+
+        //    if (game_socket.send(opponentTauntPacket, opponent_address.value(), opponent_port) != sf::Socket::Status::Done) {
+        //        std::cerr << "[GameRoom " << id << "] Error enviando S_OPPONENT_TAUNT a "
+        //            << opponent_address.value() << ":" << opponent_port << std::endl;
+        //    }
+        //    else {
+        //        std::cout << "[GameRoom " << id << "] S_OPPONENT_TAUNT enviado a "
+        //            << opponent_address.value() << ":" << opponent_port << std::endl;
+        //    }
+        //}
         else {
             std::cerr << "[GameRoom " << id << "] Error al leer datos de GR_C_PLAYER_INPUT." << std::endl;
         }
@@ -165,7 +220,7 @@ void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned sho
     }
 }
 
-// <--- MODIFICADO: Lógica de física autoritativa del servidor con colisiones de plataforma// Lógica de física autoritativa del servidor con colisiones de plataforma
+// Lógica de física autoritativa del servidor con colisiones de plataforma
 void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime) {
     // Aplicar salto si se solicitó y el jugador está en el suelo
     if (playerstate.jumpRequested && playerstate.onGround) {
@@ -213,10 +268,7 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime) {
                 playerstate.position.y = platform.getPosition().y + platform.getSize().y;
                 playerstate.velocity.y = 0;
             }
-            // Importante: En un sistema de colisiones más complejo, no se usaría 'break'
-            // y se resolverían todas las penetraciones. Para esta configuración simple,
-            // si solo hay una colisión vertical significativa por tick, está bien.
-            // La posición Y ya está ajustada, así que playerstate.position.y es la nueva base para X.
+            
             break;
         }
     }
@@ -236,7 +288,7 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime) {
                 playerstate.position.x = platform.getPosition().x + platform.getSize().x;
             }
             playerstate.velocity.x = 0; // Detener movimiento horizontal
-            // Similar al eje Y, se asume que se resuelve la colisión principal.
+           
             break;
         }
     }
