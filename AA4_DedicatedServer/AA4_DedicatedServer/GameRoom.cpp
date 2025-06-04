@@ -18,6 +18,7 @@ GameRoom::GameRoom(const std::string& roomId, sf::UdpSocket& serverSocket, sf::I
     player2_address(p2Addr), player2_port(p2Port)
     // gameTickInterval se inicializa en la declaración en GameRoom.h
 {
+    /*
     std::cout << "[GameRoom " << id << "] Creada para P1:"
         << player1_address.toString() << ":" << player1_port << " y P2:"
         << player2_address.toString() << ":" << player2_port << std::endl;*/
