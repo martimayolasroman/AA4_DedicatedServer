@@ -18,8 +18,8 @@ int main() {
 
     signal(SIGINT, sigint_handler); // Capturar Ctrl+C
 
-    unsigned short game_port = 56000;    // Puerto UDP para el juego
-    unsigned short admin_port = 56001;   // Puerto TCP para administración
+    unsigned short game_port = 55002;    // Puerto UDP para el juego
+    unsigned short admin_port = 55003;   // Puerto TCP para administración
     size_t pool_threads = std::thread::hardware_concurrency(); 
 
 
