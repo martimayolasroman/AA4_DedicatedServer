@@ -20,13 +20,13 @@ const unsigned int SERVER_MAP_HEIGHT = 768;
 const float TILE_SIZE = 32.0f;
 
 const float GRAVITY_SERVER = 1200.0f;
-const float JUMP_STRENGTH_SERVER = 650.0f; // <--- Asegúrate que coincide con JUMP_STRENGTH del cliente
+const float JUMP_STRENGTH_SERVER = 650.0f; 
 const float GAME_ROOM_PLAYER_WIDTH = TILE_SIZE * 0.9f;
 const float GAME_ROOM_PLAYER_HEIGHT = TILE_SIZE * 1.4f;
 const int PLAYER_INITIAL_HEALTH = 5;
 const int PLAYER_INITIAL_LIVES = 3;
 const float PLAYER_INITIAL_POS_X = 100.0f;
-const float PLAYER_INITIAL_POS_Y = 500.0f; // Ajusta esto para que los jugadores aparezcan sobre el suelo
+const float PLAYER_INITIAL_POS_Y = 500.0f; 
 
 // --- CONSTANTES DE BALA EN EL SERVIDOR (DEBEN COINCIDIR CON EL CLIENTE) ---
 const float BULLET_SERVER_SPEED = 500.0f;
@@ -107,4 +107,5 @@ private:
     void updateBulletsServer(float deltaTime);
     void updateGameState(float deltaTime);
     void sendGameStateToClients();
+    void HandlePlayerDamageAndDeath(PlayerState& playerstate, int playerId);
 };
