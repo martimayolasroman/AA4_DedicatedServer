@@ -462,6 +462,7 @@ void GameRoom::updateBulletsServer(float deltaTime) {
 void GameRoom::updateGameState(float deltaTime) {
     if (!running_flag.load()) return;
 
+    handlePingPongLogic(); // Comprobar PING/PONG primero
 
     updatePlayerState(player1_state, deltaTime, player1_shoot_cooldown, 1);
     updatePlayerState(player2_state, deltaTime, player2_shoot_cooldown, 2);
