@@ -6,6 +6,67 @@
 #include <algorithm> 
 #include <fstream>
 
+
+enum  GameResultType {
+    YOU_WON = 0,
+    YOU_LOST = 1,
+    OPPONENT_DISCONNECTED = 3
+};
+
+enum  AdminPacketType {
+    NOTIFY_NEW_GAME = 200,
+    S_GAME_OVER_RESULT = 250,
+
+    ADMIN_UNKNOWN = -1
+};
+
+
+void GameRoom::checkAndHandleGameOver()
+{
+
+
+    if (game_over_sent_flag_.load()) return; // Si ya se manejó, no hacer nada
+
+    bool p1_has_lost = (player1_state.lives <= 0);
+    bool p2_has_lost = (player2_state.lives <= 0);
+
+  
+     if (p1_has_lost) {
+        std::cout << "[GameRoom " << id << "] JUGADOR 2 GANA! (Jugador 1 sin vidas)." << std::endl;
+        notifyClientsOfGameOver(GameResultType::YOU_LOST, GameResultType::YOU_WON);
+    }
+    else if (p2_has_lost) {
+        std::cout << "[GameRoom " << id << "] JUGADOR 1 GANA! (Jugador 2 sin vidas)." << std::endl;
+        notifyClientsOfGameOver(GameResultType::YOU_WON, GameResultType::YOU_LOST);
+    }
+    // Opcional: Manejar desconexión de un jugador como una victoria para el otro
+    // if (player1_disconnected && !player2_disconnected) { ... }
+}
+
+
+void GameRoom::notifyClientsOfGameOver(GameResultType p1_result, GameResultType p2_result)
+{
+
+    if (game_over_sent_flag_.exchange(true)) { // Si ya se envió, no hacer nada
+        return;
+    }
+    std::cout << "[GameRoom " << id << "] Enviando S_GAME_OVER_RESULT. P1: "
+        << static_cast<int>(p1_result) << ", P2: " << static_cast<int>(p2_result) << std::endl;
+
+    sf::Packet packet_to_p1;
+    packet_to_p1 << S_GAME_OVER_RESULT << p1_result;
+    game_socket.send(packet_to_p1, player1_address, player1_port);
+
+    sf::Packet packet_to_p2;
+    packet_to_p2 << S_GAME_OVER_RESULT << p2_result;
+    game_socket.send(packet_to_p2, player2_address, player2_port);
+
+    // Después de notificar, la sala se detiene
+    this->stop(); // Llama a GameRoom::stop() que pone running_flag = false
+
+
+}
+
 // Función para cargar el mapa en el servidor
 std::vector<sf::RectangleShape> GameRoom::loadServerMap(const std::string& filename) {
     std::vector<sf::RectangleShape> platforms_map;
@@ -295,6 +356,10 @@ void GameRoom::updateGameState(float deltaTime) {
     updatePlayerState(player1_state, deltaTime, player1_shoot_cooldown, 1);
     updatePlayerState(player2_state, deltaTime, player2_shoot_cooldown, 2);
     updateBulletsServer(deltaTime);
+
+    // Comprobar si la partida ha terminado DESPUÉS de todas las actualizaciones del tick
+    checkAndHandleGameOver();
+
 }
 
 //Serializa el estado actual del juego(posiciones de jugadores, salud, vidas, velocidad, estado en el suelo, y estado de las balas)
@@ -340,9 +405,7 @@ void GameRoom::HandlePlayerDamageAndDeath(PlayerState& playerstate, int playerId
             playerstate.lives = 0;  // Asegurar que las vidas no sean negativas
             game_over_for_player = true;
             std::cout << "[GameRoom " << id << "] Jugador " << playerId << " HA PERDIDO TODAS LAS VIDAS. GAME OVER para este jugador." << std::endl;
-            // lógica para terminar la partida para ambos si un jugador pierde,
-            
-            // running_flag = false; // Esto detendría el bucle de la sala
+           
         }
     }
 
@@ -350,7 +413,7 @@ void GameRoom::HandlePlayerDamageAndDeath(PlayerState& playerstate, int playerId
 
     if (needs_respawn && !game_over_for_player) {
         std::cout << "[GameRoom " << id << "] Jugador " << playerId << " reapareciendo." << std::endl;
-        // Definir puntos de respawn, podrían ser diferentes para P1 y P2 o aleatorios de una lista
+       
         if (playerId == 1) {
             playerstate.position = { PLAYER_INITIAL_POS_X, PLAYER_INITIAL_POS_Y };
         }
@@ -364,33 +427,7 @@ void GameRoom::HandlePlayerDamageAndDeath(PlayerState& playerstate, int playerId
         playerstate.jumpRequested = false;
     }
 
-    // Aquí puedes manejar la lógica de fin de partida si un jugador llega a 0 vidas
-    // y el otro gana, o si ambos pierden, etc.
-    // Por ejemplo, si player1_state.lives == 0 Y player2_state.lives == 0 -> Empate, stop()
-    // Si player1_state.lives == 0 Y player2_state.lives > 0 -> P2 Gana, stop()
-    if ((player1_state.lives <= 0 && player2_state.lives <= 0) || // Ambos pierden (empate)
-        (player1_state.lives <= 0 && playerId == 1) ||         // P1 acaba de perder
-        (player2_state.lives <= 0 && playerId == 2)) {        // P2 acaba de perder
-        // Lógica más compleja para determinar el ganador si es necesario
-        bool p1_lost = player1_state.lives <= 0;
-        bool p2_lost = player2_state.lives <= 0;
-
-        if (p1_lost && p2_lost) {
-            std::cout << "[GameRoom " << id << "] EMPATE - Ambos jugadores sin vidas." << std::endl;
-        }
-        else if (p1_lost) {
-            std::cout << "[GameRoom " << id << "] JUGADOR 2 GANA! (Jugador 1 sin vidas)." << std::endl;
-        }
-        else if (p2_lost) {
-            std::cout << "[GameRoom " << id << "] JUGADOR 1 GANA! (Jugador 2 sin vidas)." << std::endl;
-        }
-
-        // Enviar un último estado de juego que indique fin de partida
-        // y luego detener la sala.
-        // El cliente podría mostrar un mensaje de "Ganaste/Perdiste".
-        // sendGameStateToClients(); // Envía el estado final con vidas en 0
-        // this->stop(); // Llama a GameRoom::stop() para terminar el bucle de run()
-    }
+  
 
 
 }

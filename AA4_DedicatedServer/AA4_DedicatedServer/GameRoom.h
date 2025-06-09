@@ -99,6 +99,12 @@ private:
     std::vector<sf::RectangleShape> m_server_map_platforms;
     std::vector<ServerBullet> m_server_bullets;
 
+    //Game over
+    std::atomic<bool> game_over_sent_flag_{ false }; // Para asegurar que S_GAME_OVER_RESULT se envía una vez
+    void checkAndHandleGameOver(); 
+    void notifyClientsOfGameOver(GameResultType p1_result, GameResultType p2_result);
+
+
     const sf::Time gameTickInterval = sf::milliseconds(16); // Aproximadamente 60 TPS
 
     std::vector<sf::RectangleShape> loadServerMap(const std::string& filename);
