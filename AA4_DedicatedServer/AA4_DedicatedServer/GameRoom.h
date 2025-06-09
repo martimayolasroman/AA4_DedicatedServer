@@ -51,6 +51,8 @@ enum GameRoomPacketType {
     GR_C_PLAYER_INPUT = 5,
     GR_S_GAME_STATE = 107,
     C_PLAYER_TAUNT=108,
+    S_PING = 110,             // Servidor envía PING
+    C_PONG = 111,             // Cliente responde PONG
     S_OPPONENT_TAUNT=109
 };
 
@@ -108,10 +110,33 @@ private:
     std::vector<sf::RectangleShape> m_server_map_platforms;
     std::vector<ServerBullet> m_server_bullets;
 
-    //G
+    //Gameover
     std::atomic<bool> game_over_sent_flag_{ false }; 
-    void checkAndHandleGameOver(); // Nueva función
+    void checkAndHandleGameOver(); 
     void notifyClientsOfGameOver(GameResultType p1_result, GameResultType p2_result);
+
+    // PING-PONG Logic Members
+    sf::Clock player1_ping_timer_;      // Cuándo enviar el próximo PING a P1
+    sf::Clock player2_ping_timer_;      // Cuándo enviar el próximo PING a P2
+    sf::Clock game_internal_clock_;     // Reloj para obtener el tiempo actual para timeouts de PONG
+
+    const sf::Time ping_interval_ = sf::seconds(1.5f); // Enviar PING más frecuentemente
+    const sf::Time pong_timeout_ = sf::seconds(5.0f);  // Aumentar timeout para PONG (redes lentas)
+    const int max_missed_pongs_ = 3;                   // Desconectar después de 3 PONGs fallidos
+
+    bool player1_waiting_for_pong_ = false;
+    sf::Time player1_time_ping_sent_; // Hora en que se envió el último PING a P1
+    int player1_missed_pongs_ = 0;
+
+    bool player2_waiting_for_pong_ = false;
+    sf::Time player2_time_ping_sent_; // Hora en que se envió el último PING a P2
+    int player2_missed_pongs_ = 0;
+
+    
+    sf::Clock player1_last_activity_time_;
+    sf::Clock player2_last_activity_time_;
+
+    void handlePingPongLogic(); 
 
 
     const sf::Time gameTickInterval = sf::milliseconds(16); // Aproximadamente 60 TPS

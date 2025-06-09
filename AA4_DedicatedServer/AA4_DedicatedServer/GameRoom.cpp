@@ -47,6 +47,7 @@ void GameRoom::checkAndHandleGameOver()
     }
     // Opcional: Manejar desconexión de un jugador como una victoria para el otro
     // if (player1_disconnected && !player2_disconnected) { ... }
+    
 }
 
 
@@ -69,6 +70,77 @@ void GameRoom::notifyClientsOfGameOver(GameResultType p1_result, GameResultType 
 
     // Después de notificar, la sala se detiene
     this->stop(); // Llama a GameRoom::stop() que pone running_flag = false
+
+
+}
+
+void GameRoom::handlePingPongLogic()
+{
+   
+    sf::Time current_time = game_internal_clock_.getElapsedTime(); 
+
+    // --- Jugador 1 ---
+    if (player1_waiting_for_pong_) {
+        if (current_time - player1_time_ping_sent_ > pong_timeout_) {
+            player1_missed_pongs_++;
+            std::cout << "[GameRoom " << id << "] PONG timeout para Jugador 1 ("
+                << player1_address.toString() << "). Fallos: " << player1_missed_pongs_ << std::endl;
+            player1_waiting_for_pong_ = false; // Permite enviar el siguiente PING
+            if (player1_missed_pongs_ >= max_missed_pongs_) {
+                std::cout << "[GameRoom " << id << "] Jugador 1 desconectado (demasiados PONGs fallidos)." << std::endl;
+                // P1 (el que se desconectó) pierde, P2 gana
+                notifyClientsOfGameOver(GameResultType::YOU_LOST, GameResultType::YOU_WON);
+                return; 
+            }
+        }
+    }
+    // Enviar PING si no se espera PONG y ha pasado el intervalo
+    if (!player1_waiting_for_pong_ && player1_ping_timer_.getElapsedTime() > ping_interval_) {
+        sf::Packet pingPacket;
+        pingPacket << S_PING;
+        if (game_socket.send(pingPacket, player1_address, player1_port) == sf::Socket::Status::Done) {
+            player1_time_ping_sent_ = current_time;
+            player1_waiting_for_pong_ = true;
+            // std::cout << "[GameRoom " << id << "] PING enviado a Jugador 1." << std::endl;
+        }
+        else {
+            std::cerr << "[GameRoom " << id << "] Error enviando PING a Jugador 1." << std::endl;
+            // Considerar esto como un posible inicio de problemas de conexión
+        }
+        player1_ping_timer_.restart();
+    }
+
+    if (game_over_sent_flag_.load()) return; // Comprobar de nuevo por si P1 se desconectó
+
+    // --- Jugador 2 ---
+    if (player2_waiting_for_pong_) {
+        if (current_time - player2_time_ping_sent_ > pong_timeout_) {
+            player2_missed_pongs_++;
+            std::cout << "[GameRoom " << id << "] PONG timeout para Jugador 2 ("
+                << player2_address.toString() << "). Fallos: " << player2_missed_pongs_ << std::endl;
+            player2_waiting_for_pong_ = false;
+            if (player2_missed_pongs_ >= max_missed_pongs_) {
+                std::cout << "[GameRoom " << id << "] Jugador 2 desconectado (demasiados PONGs fallidos)." << std::endl;
+                // P2 (el que se desconectó) pierde, P1 gana
+                notifyClientsOfGameOver(GameResultType::YOU_WON, GameResultType::YOU_LOST);
+                return; // Salir
+            }
+        }
+    }
+    if (!player2_waiting_for_pong_ && player2_ping_timer_.getElapsedTime() > ping_interval_) {
+        sf::Packet pingPacket;
+        pingPacket << GameRoomPacketType::S_PING;
+        if (game_socket.send(pingPacket, player2_address, player2_port) == sf::Socket::Status::Done) {
+            player2_time_ping_sent_ = current_time;
+            player2_waiting_for_pong_ = true;
+            // std::cout << "[GameRoom " << id << "] PING enviado a Jugador 2." << std::endl;
+        }
+        else {
+            std::cerr << "[GameRoom " << id << "] Error enviando PING a Jugador 2." << std::endl;
+        }
+        player2_ping_timer_.restart();
+    }
+
 
 
 }
@@ -130,7 +202,7 @@ GameRoom::GameRoom(const std::string& roomId, sf::UdpSocket& serverSocket, sf::I
     player1_state.velocity = { 0.f, 0.f };
     player1_state.onGround = false;
 
-    player2_state.position = { PLAYER_INITIAL_POS_X + 300.0f, PLAYER_INITIAL_POS_Y }; // Asegúrate de que esta posición sea válida
+    player2_state.position = { PLAYER_INITIAL_POS_X + 300.0f, PLAYER_INITIAL_POS_Y }; 
     player2_state.health = PLAYER_INITIAL_HEALTH;
     player2_state.lives = PLAYER_INITIAL_LIVES;
     player2_state.moveDirection = 0.f;
@@ -138,6 +210,12 @@ GameRoom::GameRoom(const std::string& roomId, sf::UdpSocket& serverSocket, sf::I
     player2_state.jumpRequested = false;
     player2_state.velocity = { 0.f, 0.f };
     player2_state.onGround = false;
+
+    player1_ping_timer_.restart();
+    player2_ping_timer_.restart();
+    player1_last_activity_time_.restart(); // Para el timeout de inactividad general
+    player2_last_activity_time_.restart();
+    game_internal_clock_.restart(); // Reloj para medir el tiempo actual para los timeouts de PONG
 }
 
 //El bucle principal de ejecución de esta sala de juego. Se ejecuta en un thread del ThreadPool.
@@ -185,6 +263,16 @@ void GameRoom::stop() {  }
 void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned short remotePort, sf::Packet& packet) {
     if (!running_flag.load()) return;
 
+
+    // Reiniciar temporizador de actividad general para el jugador que envió el paquete
+    if (remoteAddress == player1_address && remotePort == player1_port) {
+        player1_last_activity_time_.restart();
+    }
+    else if (remoteAddress == player2_address && remotePort == player2_port) {
+        player2_last_activity_time_.restart();
+    }
+
+
     GameRoomPacketType packetType;
     if (!(packet >> packetType)) { std::cerr << "[GameRoom " << id << "] Error al leer GameRoomPacketType." << std::endl; return; }
 
@@ -206,6 +294,22 @@ void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned sho
             }
         }
         else { std::cerr << "[GameRoom " << id << "] Error al leer datos de GR_C_PLAYER_INPUT." << std::endl; }
+    }
+    else if (packetType == C_PONG) {
+
+        std::cout << "[GameRoom " << id << "] PONG recibido de " << remoteAddress.toString() << ":" << remotePort << std::endl;
+        if (remoteAddress == player1_address && remotePort == player1_port) {
+            player1_waiting_for_pong_ = false;
+            player1_missed_pongs_ = 0;
+            
+        }
+        else if (remoteAddress == player2_address && remotePort == player2_port) {
+            player2_waiting_for_pong_ = false;
+            player2_missed_pongs_ = 0;
+           
+        }
+
+
     }
     else { std::cerr << "[GameRoom " << id << "] Tipo de paquete UDP desconocido: " << static_cast<int>(packetType) << std::endl; }
 }
@@ -424,7 +528,7 @@ void GameRoom::HandlePlayerDamageAndDeath(PlayerState& playerstate, int playerId
             playerstate.position = { PLAYER_INITIAL_POS_X, PLAYER_INITIAL_POS_Y };
         }
         else {
-            playerstate.position = { PLAYER_INITIAL_POS_X + 100, PLAYER_INITIAL_POS_Y + 100};
+            playerstate.position = { PLAYER_INITIAL_POS_X , PLAYER_INITIAL_POS_Y };
         }
         playerstate.velocity = { 0.f, 0.f }; // Resetear velocidad
         playerstate.onGround = true; // Asumir que el punto de respawn es en el suelo
