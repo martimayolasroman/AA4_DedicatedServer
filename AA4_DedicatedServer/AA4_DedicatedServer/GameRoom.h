@@ -54,6 +54,13 @@ enum GameRoomPacketType {
     S_OPPONENT_TAUNT=109
 };
 
+enum  GameResultType {
+    YOU_WON = 0,
+    YOU_LOST = 1,
+    OPPONENT_DISCONNECTED = 3
+};
+
+
 // Operadores para facilitar el uso de GameRoomPacketType con sf::Packet
 inline sf::Packet& operator<<(sf::Packet& packet, GameRoomPacketType type) {
     return packet << static_cast<int>(type);
@@ -64,6 +71,8 @@ inline sf::Packet& operator>>(sf::Packet& packet, GameRoomPacketType& type) {
     type = static_cast<GameRoomPacketType>(temp);
     return packet;
 }
+
+
 
 class GameRoom {
 public:
@@ -99,9 +108,9 @@ private:
     std::vector<sf::RectangleShape> m_server_map_platforms;
     std::vector<ServerBullet> m_server_bullets;
 
-    //Game over
-    std::atomic<bool> game_over_sent_flag_{ false }; // Para asegurar que S_GAME_OVER_RESULT se envía una vez
-    void checkAndHandleGameOver(); 
+    //G
+    std::atomic<bool> game_over_sent_flag_{ false }; 
+    void checkAndHandleGameOver(); // Nueva función
     void notifyClientsOfGameOver(GameResultType p1_result, GameResultType p2_result);
 
 

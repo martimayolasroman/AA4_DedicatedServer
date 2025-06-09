@@ -7,11 +7,6 @@
 #include <fstream>
 
 
-enum  GameResultType {
-    YOU_WON = 0,
-    YOU_LOST = 1,
-    OPPONENT_DISCONNECTED = 3
-};
 
 enum  AdminPacketType {
     NOTIFY_NEW_GAME = 200,
@@ -19,6 +14,17 @@ enum  AdminPacketType {
 
     ADMIN_UNKNOWN = -1
 };
+
+// Operadores para facilitar el uso de GameRoomPacketType con sf::Packet
+inline sf::Packet& operator<<(sf::Packet& packet, GameResultType type) {
+    return packet << static_cast<int>(type);
+}
+inline sf::Packet& operator>>(sf::Packet& packet, GameResultType& type) {
+    int temp;
+    packet >> temp;
+    type = static_cast<GameResultType>(temp);
+    return packet;
+}
 
 
 void GameRoom::checkAndHandleGameOver()

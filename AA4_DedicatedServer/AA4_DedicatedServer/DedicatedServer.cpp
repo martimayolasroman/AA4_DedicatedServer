@@ -12,11 +12,12 @@ enum  AdminPacketType  {
     ADMIN_UNKNOWN = -1
 };
 
-enum  GameResultType  {
-    YOU_WON = 0,
-    YOU_LOST = 1,
-    OPPONENT_DISCONNECTED = 3 
-};
+//enum  GameResultType {
+//    YOU_WON = 0,
+//    YOU_LOST = 1,
+//    OPPONENT_DISCONNECTED = 3
+//};
+
 
 
 inline sf::Packet& operator<<(sf::Packet& packet, AdminPacketType type) {

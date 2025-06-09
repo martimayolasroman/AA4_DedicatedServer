@@ -12,6 +12,8 @@
 #include <optional> 
 
 
+
+
 // Struct para la info que viene del MatchmakingService
 struct NewGameNotification {
     std::string roomId;
