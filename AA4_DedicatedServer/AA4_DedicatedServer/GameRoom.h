@@ -51,8 +51,8 @@ enum GameRoomPacketType {
     GR_C_PLAYER_INPUT = 5,
     GR_S_GAME_STATE = 107,
     C_PLAYER_TAUNT=108,
-    S_PING = 110,             // Servidor envía PING
-    C_PONG = 111,             // Cliente responde PONG
+    S_PING = 251,             // Servidor envía PING
+    C_PONG = 252,             // Cliente responde PONG
     S_OPPONENT_TAUNT=109
 };
 
