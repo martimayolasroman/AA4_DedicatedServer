@@ -45,8 +45,7 @@ void GameRoom::checkAndHandleGameOver()
         std::cout << "[GameRoom " << id << "] JUGADOR 1 GANA! (Jugador 2 sin vidas)." << std::endl;
         notifyClientsOfGameOver(GameResultType::YOU_WON, GameResultType::YOU_LOST);
     }
-    // Opcional: Manejar desconexión de un jugador como una victoria para el otro
-    // if (player1_disconnected && !player2_disconnected) { ... }
+   
     
 }
 
@@ -105,7 +104,7 @@ void GameRoom::handlePingPongLogic()
         }
         else {
             std::cerr << "[GameRoom " << id << "] Error enviando PING a Jugador 1." << std::endl;
-            // Considerar esto como un posible inicio de problemas de conexión
+            
         }
         player1_ping_timer_.restart();
     }
@@ -225,34 +224,34 @@ void GameRoom::run() {
 
     sendGameStateToClients(); // Envía un estado inicial
 
-    sf::Clock wallClock;
-    sf::Time accumulator = sf::Time::Zero;
-    sf::Clock debugSecondTimer;
-    int debugTickCount = 0;
-    debugSecondTimer.restart();
-
+    sf::Clock wallClock; // Mide el tiempo REAL que pasa entre iteraciones del bucle exterior.
+    sf::Time accumulator = sf::Time::Zero; // Acumula el tiempo real no procesado.
+  
+   
+   
     while (running_flag.load()) {
-        accumulator += wallClock.restart();
 
-        bool state_was_updated_in_this_outer_loop = false;
+        // 1. ACUMULAR TIEMPO REAL
+        accumulator += wallClock.restart(); // Añade el tiempo que pasó desde la última vez que se reinició wallClock.
+
+        bool state_was_updated_in_this_outer_loop = false; // Para saber si enviar estado a los clientes
+
+        // 2. PROCESAR TICKS DE LÓGICA
         while (accumulator >= gameTickInterval) {
             updateGameState(gameTickInterval.asSeconds());
             accumulator -= gameTickInterval;
             state_was_updated_in_this_outer_loop = true;
-            debugTickCount++;
+           
         }
 
+        // 3. ENVIAR ESTADO A CLIENTES (si el estado se actualizó)
         if (state_was_updated_in_this_outer_loop) {
             sendGameStateToClients();
         }
 
-        if (debugSecondTimer.getElapsedTime().asSeconds() >= 1.0f) {
-            // std::cout << "[GameRoom " << id << "] Ticks procesados en el último segundo: " << debugTickCount << std::endl;
-            debugTickCount = 0;
-            debugSecondTimer.restart();
-        }
+       
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+       
     }
     std::cout << "[GameRoom " << id << "] Bucle de juego detenido." << std::endl;
 }
