@@ -371,7 +371,8 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime, floa
     playerstate.position.y += playerstate.velocity.y * deltaTime;
     playerstate.onGround = false;
     sf::FloatRect playerBoundsY(playerstate.position, { GAME_ROOM_PLAYER_WIDTH, GAME_ROOM_PLAYER_HEIGHT });
-    for (const auto& platform : m_server_map_platforms) {
+    for (size_t i = 0; i < m_server_map_platforms.size(); i++) {
+        const sf::RectangleShape& platform = m_server_map_platforms[i];
         std::optional<sf::FloatRect> intersection = playerBoundsY.findIntersection(platform.getGlobalBounds());
         if (intersection) {
             if (playerstate.velocity.y > 0) { playerstate.position.y = platform.getPosition().y - GAME_ROOM_PLAYER_HEIGHT; playerstate.onGround = true; playerstate.velocity.y = 0; }
@@ -383,7 +384,8 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime, floa
     // 2. Mover en X y resolver colisiones horizontales
     playerstate.position.x += playerstate.velocity.x * deltaTime;
     sf::FloatRect playerBoundsX(playerstate.position, { GAME_ROOM_PLAYER_WIDTH, GAME_ROOM_PLAYER_HEIGHT });
-    for (const auto& platform : m_server_map_platforms) {
+    for (size_t i = 0; i < m_server_map_platforms.size(); i++) {
+        const sf::RectangleShape& platform = m_server_map_platforms[i];
         std::optional<sf::FloatRect> intersection = playerBoundsX.findIntersection(platform.getGlobalBounds());
         if (intersection) {
             if (playerstate.velocity.x > 0) { playerstate.position.x = platform.getPosition().x - GAME_ROOM_PLAYER_WIDTH; }
@@ -396,14 +398,7 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime, floa
     if (playerstate.position.x < 0.f) { playerstate.position.x = 0.f; playerstate.velocity.x = 0.f; }
     if (playerstate.position.x + GAME_ROOM_PLAYER_WIDTH > SERVER_MAP_WIDTH) { playerstate.position.x = SERVER_MAP_WIDTH - GAME_ROOM_PLAYER_WIDTH; playerstate.velocity.x = 0.f; }
 
-    // 4. Límite de caída (Y)
-    if (playerstate.position.y > SERVER_MAP_HEIGHT + 100.f) {
-        std::cout << "[GameRoom " << id << "] Jugador " << playerId << " cayó del mapa, reapareciendo." << std::endl;
-        playerstate.position = { PLAYER_INITIAL_POS_X, PLAYER_INITIAL_POS_Y };
-        playerstate.velocity = { 0.f, 0.f }; playerstate.health--;
-        if (playerstate.health <= 0) { playerstate.lives--; playerstate.health = PLAYER_INITIAL_HEALTH; if (playerstate.lives < 0) playerstate.lives = 0; }
-        playerstate.onGround = true;
-    }
+
 }
 
 // Actualizar las balas en el servidor y detectar colisiones
@@ -487,7 +482,9 @@ void GameRoom::sendGameStateToClients() {
         << player2_state.velocity.x << player2_state.velocity.y << player2_state.onGround;
 
     gameStatePacket << static_cast<int>(m_server_bullets.size());
-    for (const auto& bullet : m_server_bullets) {
+
+    for (size_t i = 0; i < m_server_bullets.size(); i++) {
+        const ServerBullet& bullet = m_server_bullets[i];
         gameStatePacket << bullet.position.x << bullet.position.y << bullet.velocity.x << bullet.velocity.y
             << bullet.radius << bullet.isActive << bullet.ownerPlayerId;
     }

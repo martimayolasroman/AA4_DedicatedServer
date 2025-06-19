@@ -1,5 +1,5 @@
 #include "ThreadPool.h"
-
+//------------------------- IA ---------------------------------------
 
 //Crea el pool de threads.
 ThreadPool::ThreadPool(size_t num_threads):num_threads_(num_threads),stop_flag_(false)
@@ -10,7 +10,7 @@ ThreadPool::ThreadPool(size_t num_threads):num_threads_(num_threads),stop_flag_(
 		if (num_threads_ == 0) num_threads_ = 2;
 	}
 
-	for (size_t i = 0; i < num_threads_; ++i) {
+	for (size_t i = 0; i < num_threads_; i++) {
 		workers_.emplace_back(&ThreadPool::workerLoop, this);
 	}
 
