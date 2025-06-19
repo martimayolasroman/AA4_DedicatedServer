@@ -36,8 +36,8 @@ void GameRoom::checkAndHandleGameOver()
     bool p1_has_lost = (player1_state.lives <= 0);
     bool p2_has_lost = (player2_state.lives <= 0);
 
-  
-     if (p1_has_lost) {
+
+    if (p1_has_lost) {
         std::cout << "[GameRoom " << id << "] JUGADOR 2 GANA! (Jugador 1 sin vidas)." << std::endl;
         notifyClientsOfGameOver(GameResultType::YOU_LOST, GameResultType::YOU_WON);
     }
@@ -47,7 +47,7 @@ void GameRoom::checkAndHandleGameOver()
     }
     // Opcional: Manejar desconexión de un jugador como una victoria para el otro
     // if (player1_disconnected && !player2_disconnected) { ... }
-    
+
 }
 
 
@@ -76,8 +76,8 @@ void GameRoom::notifyClientsOfGameOver(GameResultType p1_result, GameResultType 
 
 void GameRoom::handlePingPongLogic()
 {
-   
-    sf::Time current_time = game_internal_clock_.getElapsedTime(); 
+
+    sf::Time current_time = game_internal_clock_.getElapsedTime();
 
     // --- Jugador 1 ---
     if (player1_waiting_for_pong_) {
@@ -90,7 +90,7 @@ void GameRoom::handlePingPongLogic()
                 std::cout << "[GameRoom " << id << "] Jugador 1 desconectado (demasiados PONGs fallidos)." << std::endl;
                 // P1 (el que se desconectó) pierde, P2 gana
                 notifyClientsOfGameOver(GameResultType::YOU_LOST, GameResultType::YOU_WON);
-                return; 
+                return;
             }
         }
     }
@@ -202,7 +202,7 @@ GameRoom::GameRoom(const std::string& roomId, sf::UdpSocket& serverSocket, sf::I
     player1_state.velocity = { 0.f, 0.f };
     player1_state.onGround = false;
 
-    player2_state.position = { PLAYER_INITIAL_POS_X + 300.0f, PLAYER_INITIAL_POS_Y }; 
+    player2_state.position = { PLAYER_INITIAL_POS_X + 300.0f, PLAYER_INITIAL_POS_Y };
     player2_state.health = PLAYER_INITIAL_HEALTH;
     player2_state.lives = PLAYER_INITIAL_LIVES;
     player2_state.moveDirection = 0.f;
@@ -301,12 +301,12 @@ void GameRoom::processUdpPacket(const sf::IpAddress& remoteAddress, unsigned sho
         if (remoteAddress == player1_address && remotePort == player1_port) {
             player1_waiting_for_pong_ = false;
             player1_missed_pongs_ = 0;
-            
+
         }
         else if (remoteAddress == player2_address && remotePort == player2_port) {
             player2_waiting_for_pong_ = false;
             player2_missed_pongs_ = 0;
-           
+
         }
 
 
@@ -328,10 +328,10 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime, floa
         sf::Vector2f bulletVelocity;
 
         // Determinar dirección del disparo. Asumir facingRight si no hay movimiento/velocidad.
-        bool facingRight = true; 
+        bool facingRight = true;
         if (playerstate.moveDirection < 0 || playerstate.velocity.x < 0) facingRight = false;
         else if (playerstate.moveDirection > 0 || playerstate.velocity.x > 0) facingRight = true;
-       
+
 
         if (facingRight) {
             bulletSpawnPos.x += GAME_ROOM_PLAYER_WIDTH;
@@ -428,7 +428,7 @@ void GameRoom::updateBulletsServer(float deltaTime) {
             if (targetPlayer && targetPlayer->health > 0) {
                 sf::FloatRect targetPlayerBounds(targetPlayer->position, { GAME_ROOM_PLAYER_WIDTH, GAME_ROOM_PLAYER_HEIGHT });
                 if (bulletBounds.findIntersection(targetPlayerBounds)) {
-                    bullet.isActive = false; 
+                    bullet.isActive = false;
 
                     if (targetPlayer->health > 0) { // Solo quitar vida si no está ya "muerto" en este tick
                         targetPlayer->health--;
@@ -489,8 +489,8 @@ void GameRoom::sendGameStateToClients() {
             << bullet.radius << bullet.isActive << bullet.ownerPlayerId;
     }
 
-    if (game_socket.send(gameStatePacket, player1_address, player1_port) != sf::Socket::Status::Done) {  }
-    if (game_socket.send(gameStatePacket, player2_address, player2_port) != sf::Socket::Status::Done) {  }
+    if (game_socket.send(gameStatePacket, player1_address, player1_port) != sf::Socket::Status::Done) {}
+    if (game_socket.send(gameStatePacket, player2_address, player2_port) != sf::Socket::Status::Done) {}
 }
 
 void GameRoom::HandlePlayerDamageAndDeath(PlayerState& playerstate, int playerId)
@@ -501,7 +501,7 @@ void GameRoom::HandlePlayerDamageAndDeath(PlayerState& playerstate, int playerId
 
     if (playerstate.health <= 0) {
         playerstate.lives--; // <--- DECREMENTAR VIDAS TOTALES
-        std::cout << "[GameRoom " << id << "] Jugador " << playerId  << ". Vidas restantes: " << playerstate.lives << std::endl;
+        std::cout << "[GameRoom " << id << "] Jugador " << playerId << ". Vidas restantes: " << playerstate.lives << std::endl;
 
         if (playerstate.lives > 0) {
             playerstate.health = PLAYER_INITIAL_HEALTH; // Restaurar salud al máximo
@@ -513,15 +513,15 @@ void GameRoom::HandlePlayerDamageAndDeath(PlayerState& playerstate, int playerId
             playerstate.lives = 0;  // Asegurar que las vidas no sean negativas
             game_over_for_player = true;
             std::cout << "[GameRoom " << id << "] Jugador " << playerId << " HA PERDIDO TODAS LAS VIDAS. GAME OVER para este jugador." << std::endl;
-           
+
         }
     }
 
-   
+
 
     if (needs_respawn && !game_over_for_player) {
         std::cout << "[GameRoom " << id << "] Jugador " << playerId << " reapareciendo." << std::endl;
-       
+
         if (playerId == 1) {
             playerstate.position = { PLAYER_INITIAL_POS_X, PLAYER_INITIAL_POS_Y };
         }
@@ -535,7 +535,7 @@ void GameRoom::HandlePlayerDamageAndDeath(PlayerState& playerstate, int playerId
         playerstate.jumpRequested = false;
     }
 
-  
+
 
 
 }
