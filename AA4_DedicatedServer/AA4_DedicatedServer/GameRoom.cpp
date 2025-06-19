@@ -349,8 +349,8 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime, floa
     }
 
 
-    // Aplicar salto si se solicitó y el jugador está en el suelo
-    if (playerstate.jumpRequested && playerstate.onGround) {
+    // Aplicar salto si se solicitó
+    if (playerstate.jumpRequested) {
         playerstate.velocity.y = -JUMP_STRENGTH_SERVER;
         playerstate.onGround = false;
     }

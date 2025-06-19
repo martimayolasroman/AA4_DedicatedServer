@@ -31,7 +31,7 @@ const float PLAYER_INITIAL_POS_Y = 500.0f;
 // --- CONSTANTES DE BALA EN EL SERVIDOR (DEBEN COINCIDIR CON EL CLIENTE) ---
 const float BULLET_SERVER_SPEED = 500.0f;
 const float BULLET_SERVER_RADIUS = 5.0f; // Coincide con BULLET_RADIUS del cliente
-const float SHOOT_SERVER_COOLDOWN = 2.0f; // Coincide con SHOOT_COOLDOWN del cliente
+const float SHOOT_SERVER_COOLDOWN = 0.2f; // Coincide con SHOOT_COOLDOWN del cliente
 
 // Estructura para las balas del servidor
 struct ServerBullet {
