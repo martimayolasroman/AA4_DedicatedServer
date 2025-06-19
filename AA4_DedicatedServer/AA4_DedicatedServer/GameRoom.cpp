@@ -45,8 +45,7 @@ void GameRoom::checkAndHandleGameOver()
         std::cout << "[GameRoom " << id << "] JUGADOR 1 GANA! (Jugador 2 sin vidas)." << std::endl;
         notifyClientsOfGameOver(GameResultType::YOU_WON, GameResultType::YOU_LOST);
     }
-    // Opcional: Manejar desconexión de un jugador como una victoria para el otro
-    // if (player1_disconnected && !player2_disconnected) { ... }
+    
 
 }
 
@@ -105,7 +104,7 @@ void GameRoom::handlePingPongLogic()
         }
         else {
             std::cerr << "[GameRoom " << id << "] Error enviando PING a Jugador 1." << std::endl;
-            // Considerar esto como un posible inicio de problemas de conexión
+            
         }
         player1_ping_timer_.restart();
     }
@@ -403,6 +402,7 @@ void GameRoom::updatePlayerState(PlayerState& playerstate, float deltaTime, floa
 
 // Actualizar las balas en el servidor y detectar colisiones
 void GameRoom::updateBulletsServer(float deltaTime) {
+
     for (auto& bullet : m_server_bullets) {
         if (bullet.isActive) {
             bullet.position += bullet.velocity * deltaTime;
